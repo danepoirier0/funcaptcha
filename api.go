@@ -79,6 +79,20 @@ type HARData struct {
 	Log logData `json:"log"`
 }
 
+type ChatArkoseResponse struct {
+	Token                    string `json:"token"`
+	ChallengeURL             string `json:"challenge_url"`
+	ChallengeURLCDN          string `json:"challenge_url_cdn"`
+	ChallengeURLCDNSRI       string `json:"challenge_url_cdn_sri"`
+	NoScript                 string `json:"noscript"`
+	Mbio                     bool   `json:"mbio"`
+	Tbio                     bool   `json:"tbio"`
+	Kbio                     bool   `json:"kbio"`
+	DisableDefaultStyling    bool   `json:"disable_default_styling"`
+	CompatibilityModeEnabled bool   `json:"compatibility_mode_enabled"`
+	ForceStandardMode        bool   `json:"force_standard_mode"`
+}
+
 func readHAR() {
 	// 指定需要读取的文件夹路径
 	dirPath := "harPool"
@@ -195,43 +209,49 @@ func SetTLSClient(cli *tls_client.HttpClient) {
 }
 
 func GetOpenAIAuthToken(puid string, dx string, proxy string) (string, error) {
-	token, err := sendRequest(0, "", puid, dx, proxy)
-	return token, err
+	arkResp, err := sendRequest(0, "", puid, dx, proxy)
+	if err != nil {
+		return "", err
+	}
+	return arkResp.Token, nil
 }
 
 func GetOpenAIAuthTokenWithBx(bx string, puid string, dx string, proxy string) (string, error) {
-	token, err := sendRequest(0, getBdaWitBx(bx), puid, dx, proxy)
-	return token, err
+	arkResp, err := sendRequest(0, getBdaWitBx(bx), puid, dx, proxy)
+	if err != nil {
+		return "", err
+	}
+	return arkResp.Token, nil
 }
 
-func GetOpenAIToken(version int, puid string, dx string, proxy string) (string, error) {
-	token, err := sendRequest(version, "", puid, dx, proxy)
-	return token, err
+func GetOpenAIToken(version int, puid string, dx string, proxy string) (*ChatArkoseResponse, error) {
+	arkResp, err := sendRequest(version, "", puid, dx, proxy)
+	return arkResp, err
 }
 
-func GetOpenAITokenWithBx(version int, bx string, puid string, dx string, proxy string) (string, error) {
-	token, err := sendRequest(version, getBdaWitBx(bx), puid, dx, proxy)
-	return token, err
+func GetOpenAITokenWithBx(version int, bx string, puid string, dx string, proxy string) (*ChatArkoseResponse, error) {
+	arkResp, err := sendRequest(version, getBdaWitBx(bx), puid, dx, proxy)
+	return arkResp, err
 }
 
 //goland:noinspection SpellCheckingInspection,GoUnhandledErrorResult
-func sendRequest(arkType int, unusebda string, puid string, dx string, proxy string) (string, error) {
+func sendRequest(arkType int, unusebda string, puid string, dx string, proxy string) (*ChatArkoseResponse, error) {
 	var tmpArk *arkReq
 	if arkType == 0 {
 		if len(authArks) == 0 {
-			return "", errors.New("a valid HAR file which contains login arkose is required")
+			return nil, errors.New("a valid HAR file which contains login arkose is required")
 		}
 		tmpArk = authArks[0]
 		authArks = append(authArks[1:], authArks[0])
 	} else if arkType == 3 || arkType == 4 {
 		if len(chatArks) == 0 {
-			return "", errors.New("a valid HAR file which contains gpt-4 arkose is required")
+			return nil, errors.New("a valid HAR file which contains gpt-4 arkose is required")
 		}
 		tmpArk = chatArks[0]
 		chatArks = append(chatArks[1:], chatArks[0])
 	}
 	if tmpArk == nil || tmpArk.arkBx == "" || len(tmpArk.arkBody) == 0 || len(tmpArk.arkHeader) == 0 {
-		return "", errors.New("a valid HAR file required")
+		return nil, errors.New("a valid HAR file required")
 	}
 	if proxy != "" {
 		(*client).SetProxy(proxy)
@@ -251,27 +271,24 @@ func sendRequest(arkType int, unusebda string, puid string, dx string, proxy str
 	}
 	resp, err := (*client).Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", errors.New("status code " + resp.Status)
+		return nil, errors.New("status code " + resp.Status)
 	}
 
-	type arkoseResponse struct {
-		Token string `json:"token"`
-	}
-	var arkose arkoseResponse
-	err = json.NewDecoder(resp.Body).Decode(&arkose)
+	var arkoseResp ChatArkoseResponse
+	err = json.NewDecoder(resp.Body).Decode(&arkoseResp)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// Check if rid is empty
-	if !strings.Contains(arkose.Token, "sup=1|rid=") {
-		return arkose.Token, errors.New("captcha required")
+	if !strings.Contains(arkoseResp.Token, "sup=1|rid=") {
+		return &arkoseResp, errors.New("captcha required")
 	}
 
-	return arkose.Token, nil
+	return &arkoseResp, nil
 }
 
 //goland:noinspection SpellCheckingInspection

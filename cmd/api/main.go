@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/acheong08/endless"
+	"github.com/danepoirier0/funcaptcha"
 	gin "github.com/gin-gonic/gin"
-	"github.com/xqdoo00o/funcaptcha"
 )
 
 var apiBreaker *funcaptcha.ApiBreaker
@@ -24,9 +24,9 @@ func main() {
 }
 
 func captchaStart(c *gin.Context) {
-	token, err := funcaptcha.GetOpenAITokenWithBx(4, `[{"key":"enhanced_fp","value":[{"key":"navigator_battery_charging","value":true}]},{"key":"fe","value":["DNT:1","L:zh-CN","D:24","PR:1","S:1920,1080","AS:1920,1080","TO:-480","SS:true","LS:true","IDB:true","B:false","ODB:true","CPUC:unknown","PK:Linux x86_64","CFP:11866 se","H:16","SWF:false"]}]`, "", "", "")
+	arkResp, err := funcaptcha.GetOpenAITokenWithBx(4, `[{"key":"enhanced_fp","value":[{"key":"navigator_battery_charging","value":true}]},{"key":"fe","value":["DNT:1","L:zh-CN","D:24","PR:1","S:1920,1080","AS:1920,1080","TO:-480","SS:true","LS:true","IDB:true","B:false","ODB:true","CPUC:unknown","PK:Linux x86_64","CFP:11866 se","H:16","SWF:false"]}]`, "", "", "")
 	if err == nil {
-		c.JSON(200, gin.H{"token": token, "status": "success"})
+		c.JSON(200, gin.H{"token": arkResp.Token, "status": "success"})
 		return
 	}
 	if err.Error() != "captcha required" {
@@ -34,7 +34,7 @@ func captchaStart(c *gin.Context) {
 		return
 	}
 	hex := "cd12da708fe6cbe6e068918c38de2ad9"
-	session, err := funcaptcha.StartChallenge(token, hex)
+	session, err := funcaptcha.StartChallenge(arkResp.Token, hex)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "unable to log requests"})
 		return
@@ -55,7 +55,7 @@ func captchaStart(c *gin.Context) {
 			return
 		}
 	}
-	c.JSON(http.StatusNetworkAuthenticationRequired, gin.H{"token": token, "session": session, "status": "captcha", "images": images})
+	c.JSON(http.StatusNetworkAuthenticationRequired, gin.H{"token": arkResp.Token, "session": session, "status": "captcha", "images": images})
 }
 
 func captchaVerify(c *gin.Context) {
