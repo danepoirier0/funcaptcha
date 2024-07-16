@@ -44,10 +44,11 @@ var (
 		tls_client.WithNotFollowRedirects(),
 		tls_client.WithCookieJar(jar),
 	}
-	client   *tls_client.HttpClient
-	proxy    = os.Getenv("http_proxy")
-	authArks []*arkReq
-	chatArks []*arkReq
+	client     *tls_client.HttpClient
+	proxy      = os.Getenv("http_proxy")
+	authArks   []*arkReq
+	chatArks   []*arkReq
+	signupArks []*arkReq
 )
 
 type kvPair struct {
@@ -177,6 +178,9 @@ func readHAR() {
 							} else if query == "35536E1E-65B4-4D96-9D97-6ADB7EFF8147" {
 								arkType = "chat"
 								chatArks = append(chatArks, &tmpArk)
+							} else if query == "0655BC92-82E1-43D9-B32E-9DF9B01AF50C" {
+								arkType = "signup"
+								signupArks = append(signupArks, &tmpArk)
 							}
 						}
 					}
@@ -224,6 +228,12 @@ func GetOpenAIAuthTokenWithBx(bx string, puid string, dx string, proxy string) (
 	return arkResp.Token, nil
 }
 
+func GetOpenAiSignupToken(datablobVal, proxy string) (*ChatArkoseResponse, error) {
+	arkResp, err := sendRequest(11, "", "", datablobVal, proxy)
+
+	return arkResp, err
+}
+
 func GetOpenAIToken(version int, puid string, dx string, proxy string) (*ChatArkoseResponse, error) {
 	arkResp, err := sendRequest(version, "", puid, dx, proxy)
 	return arkResp, err
@@ -238,17 +248,26 @@ func GetOpenAITokenWithBx(version int, bx string, puid string, dx string, proxy 
 func sendRequest(arkType int, unusebda string, puid string, dx string, proxy string) (*ChatArkoseResponse, error) {
 	var tmpArk *arkReq
 	if arkType == 0 {
+		// 登录
 		if len(authArks) == 0 {
 			return nil, errors.New("a valid HAR file which contains login arkose is required")
 		}
 		tmpArk = authArks[0]
 		authArks = append(authArks[1:], authArks[0])
 	} else if arkType == 3 || arkType == 4 {
+		// 聊天
 		if len(chatArks) == 0 {
 			return nil, errors.New("a valid HAR file which contains gpt-4 arkose is required")
 		}
 		tmpArk = chatArks[0]
 		chatArks = append(chatArks[1:], chatArks[0])
+	} else if arkType == 11 {
+		// 注册
+		if len(signupArks) == 0 {
+			return nil, errors.New("a valid HAR file which contains signup arkose is required")
+		}
+		tmpArk = signupArks[0]
+		signupArks = append(signupArks[1:], signupArks[0])
 	}
 	if tmpArk == nil || tmpArk.arkBx == "" || len(tmpArk.arkBody) == 0 || len(tmpArk.arkHeader) == 0 {
 		return nil, errors.New("a valid HAR file required")

@@ -1,5 +1,9 @@
 # Arkose Fetch
 
+
+#### 加入SignUp的Arkose获取,arkType为11
+
+
 Usage for OpenAI
 
 ```go
