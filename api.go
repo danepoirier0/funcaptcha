@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const arkPreURL = "openai.com/fc/gt2/"
+const arkPreURL = "/fc/gt2/public_key/"
 
 var arkURLIns, _ = url.Parse("https://openai.com")
 
